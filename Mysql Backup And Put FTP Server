@@ -1,0 +1,51 @@
+#!/bin/bash
+# Database credentials
+user="root"
+password="password"
+host="192.168.1.17"
+db_name="bdname"
+
+
+# FTP Option 
+HOST='x.x.x.x'
+USER='ftpusername'
+PASS='ftppassword'
+
+# Date options
+year=$(date +"%Y")
+mount=$(date +"%m")
+date=$(date +"%d-%m-%Y-%H")
+
+filename="my-database-$date"
+
+#create folder
+backup_path="/home/backup/DB/$filename"
+if [ ! -d $backup_path ]; then
+ mkdir -p $backup_path
+fi
+
+#start backup script
+MYSQL="$(which mysql)"
+TABLES="$($MYSQL --user=$user --password=$password --host=$host -Bse 'show tables from '$db_name)"
+for TABLE in $TABLES ; do
+ echo ${TABLE}
+mysqldump --user=$user --password=$password --host=$host $db_name ${TABLE} > $backup_path/${TABLE}.sql
+done
+
+#zip and delete old backup
+tar -czf $backup_path.tar.gz $backup_path
+rm -fr $backup_path
+cd /home/backup/DB/
+find . -type f -mmin +480 -delete
+
+
+#FTP PUT backup File#
+ftp -n $HOST <<END_SCRIPT
+quote USER $USER
+quote PASS $PASS
+binary
+cd backup/radius
+put "$filename.tar.gz"
+quit
+END_SCRIPT
+exit 0
